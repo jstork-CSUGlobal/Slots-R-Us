@@ -1,4 +1,4 @@
-"""Demo: one journey through the two-engine firewall.
+"""Demo: an episodic journey through the two-engine firewall.
 
 Run with:  python -m recovering_player [seed]
 """
@@ -11,7 +11,10 @@ import sys
 from recovering_player import (
     Crossing,
     CrossingKind,
+    EpisodeClosure,
+    EpisodeTrigger,
     FirewallRejection,
+    ManualClock,
     Provenance,
     RecoveringPlayer,
 )
@@ -19,34 +22,43 @@ from recovering_player import (
 
 def main() -> None:
     seed = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
+    clock = ManualClock()
     player = RecoveringPlayer(
-        rng=random.Random(seed), decay_base_step=0.04, decay_acceleration=0.01
+        clock=clock, rng=random.Random(seed),
+        full_term_days=10.0, binge_spin_threshold=15,
     )
 
-    print("== the urge arrives ==")
-    routing = player.feel_urge()
-    print(f"  substitution available : {routing.substitution_available}")
-    print(f"  sensory level          : {routing.sensory_dimmed_to:.2f}")
+    print("== enrollment ==")
+    print(f"  house charity budget   : {player.charity_pool.budget_remaining} "
+          f"(enrollment contribution already made)")
 
-    print("\n== engine 1: substitution, containment, decay ==")
-    jackpot_seen = None
-    for _ in range(8):
+    print("\n== episode 1: reported urge, then a binge ==")
+    ep1 = player.begin_episode(EpisodeTrigger.REPORTED_URGE)
+    player.feel_urge()
+    binged = False
+    for _ in range(20):
         outcome = player.spin()
-        if outcome.jackpot:
-            jackpot_seen = outcome
-    result = player.enter_sweepstake(committed=20)
-    print(f"  8 spins taken, staleness now {player.reel.staleness:.2f}")
-    print(f"  sweepstake: won={result.won}, "
-          f"{result.donated_in_your_name} donated to {result.beneficiary}")
+        binged = binged or outcome.binge_tripped
+    print(f"  20 rapid spins, binge tripped: {binged} "
+          f"(decay paused + penalized; staleness {player.reel.staleness:.2f})")
+    player.close_episode(EpisodeClosure.EXPLICIT_CLOSURE)
+    print(f"  episode 1 closed; its {ep1.spin_count} spins of chance "
+          f"telemetry are sealed inside it")
 
-    print("\n== the firewall holds ==")
+    print("\n== five quiet days pass: calendar does the tapering ==")
+    clock.advance(days=5)
+    print(f"  staleness now {player.reel.staleness:.2f} with zero spins taken")
+    print("  (the binge cost 2 penalty days and a 1-day pause; "
+          "spinning only ever slows the taper)")
+
+    print("\n== the firewall holds, within and across episodes ==")
     attempts = [
         Crossing(Provenance.CHANCE, CrossingKind.IDENTITY_GRANT,
-                 "reel-outcome", {"hit": True}),
+                 "reel-outcome", {"hit": True}, episode_id=ep1.episode_id),
+        Crossing(Provenance.CHANCE, CrossingKind.PROGRESS_CREDIT,
+                 "reel-outcome", {"winnings": 100}),
         Crossing(Provenance.CHANCE, CrossingKind.GRADUATION_UNLOCK,
                  "reel-outcome", {"streak": 7}),
-        Crossing(Provenance.CHANCE, CrossingKind.RECOVERY_RANK,
-                 "sweepstake", {"won": True}),
         Crossing(Provenance.CHANCE, CrossingKind.IDENTITY_GRANT,
                  "reel-outcome", {"jackpot": True}),
     ]
@@ -54,36 +66,38 @@ def main() -> None:
         try:
             player.firewall.transmit(attempt)
         except FirewallRejection as rejection:
-            print(f"  BLOCKED ({attempt.source}): {rejection.rule}")
+            print(f"  BLOCKED: {rejection.rule}")
 
-    print("\n== engine 2: replacement, status, durable identity ==")
-    print(f"  published schedule: "
-          f"{[m.name for m in player.track.schedule]} (no mystery box)")
+    print("\n== episode 2: planned taper session, verified behavior ==")
+    player.begin_episode(EpisodeTrigger.PLANNED_TAPER_SESSION,
+                         timeout_days=10.0)
     player.activate_blocking_tool("site blocker")
     for _ in range(5):
         player.honor_cooldown()
+        clock.advance(days=1)
     player.self_exclude("state self-exclusion registry")
+    player.close_episode(EpisodeClosure.VERIFIED_TRANSITION)
     print(f"  recovery rank          : {player.track.recovery_rank}")
     print(f"  milestones awarded     : "
           f"{[m.name for m in player.track.milestones_awarded]}")
-    print(f"  unlost ledger          : {player.track.unlost_total} kept")
+    print(f"  reel retired by time   : {player.reel.retired} "
+          f"(staleness {player.reel.staleness:.2f})")
 
-    print("\n== ceremony ==")
+    print("\n== ceremony (permanent, beyond all episodes) ==")
     artifacts = player.graduation_ceremony(
         witnesses=("sponsor", "housebreakers' council"),
-        quit_story="I stopped feeding the machine and started keeping score.",
+        quit_story="I stopped feeding the machine and let the calendar win.",
     )
     for artifact in artifacts:
-        print(f"  minted: {artifact.title} ({artifact.earned_for})")
+        print(f"  minted: {artifact.title}")
 
-    print("\n== money went one way ==")
+    print("\n== house money went one way ==")
+    print(f"  contributions: "
+          f"{[(r.event.value, r.amount) for r in player.charity_pool.records]}")
     sent = player.charity_pool.disburse("harm-reduction fund")
-    print(f"  charity disbursement   : {sent} "
-          f"(lifetime {player.charity_pool.lifetime_accrued})")
-    print(f"  firewall audit         : {len(player.firewall.blocked)} blocked, "
+    print(f"  disbursed {sent} to charity; user-owned winnings: none, ever")
+    print(f"  firewall audit: {len(player.firewall.blocked)} blocked, "
           f"{len(player.firewall.cleared)} cleared")
-    if jackpot_seen:
-        print("  (a jackpot landed during play; it baptized nothing)")
 
 
 if __name__ == "__main__":

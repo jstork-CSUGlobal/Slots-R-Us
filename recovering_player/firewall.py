@@ -40,12 +40,27 @@ class CrossingKind(str, Enum):
 
 @dataclass(frozen=True)
 class Crossing:
-    """A request to move a fact from the reel side to the track side."""
+    """A request to move a fact from the reel side to the track side.
+
+    ``episode_id`` scopes the crossing to the episode it arose in, so
+    firewall decisions are auditable per episode and the same doctrine
+    is verifiably applied within an episode and across its boundary.
+    """
 
     provenance: Provenance
     kind: CrossingKind
     source: str
     payload: Mapping[str, Any] = field(default_factory=dict)
+    episode_id: int | None = None
+
+
+#: Payload keys that denote user-facing monetary value. A CHANCE
+#: crossing carrying any of these is blocked outright: no user-facing
+#: real-money value may originate from chance.
+MONETARY_KEYS = frozenset(
+    {"amount", "money", "payout", "winnings", "prize", "donation",
+     "cash", "stake_return", "credit"}
+)
 
 
 class FirewallRejection(RuntimeError):
@@ -119,6 +134,8 @@ class HardFirewall:
     @staticmethod
     def _violated_rule(crossing: Crossing) -> str | None:
         chance = crossing.provenance is Provenance.CHANCE
+        if chance and MONETARY_KEYS.intersection(crossing.payload):
+            return "No user-facing money may originate from chance."
         if chance and crossing.payload.get("jackpot"):
             return "No jackpot baptism."
         if chance and crossing.kind is CrossingKind.IDENTITY_GRANT:

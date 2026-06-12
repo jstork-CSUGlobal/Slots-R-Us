@@ -1,120 +1,123 @@
-# Recovering Player — The Two-Engine Firewall
+# Recovering Player — The Two-Engine Firewall (episodic)
 
-A therapy-app architecture for quitting slot machines, implemented from the
-diagram. The motto is the whole design:
+A therapy-app architecture for quitting slot machines.
 
 > **Chance is quarantined in substitution. Identity is earned in
 > deterministic replacement.**
->
-> **Firewall doctrine: variable reward can taper behavior; only
-> deterministic reward can rebuild identity.**
+
+Three hard invariants, in priority order:
+
+1. **No user-facing real-money value may originate from chance.**
+2. **More spinning cannot make the reel safer faster.**
+3. **Recovery identity persists; chance-state does not become
+   identity-state.**
 
 ```
               ┌────────────────────────────────────┐
               │  USER URGE / CRAVING / RITUAL PULL │
+              │        (opens an EPISODE)          │
               └──────┬──────────────────────┬──────┘
                      ▼                      ▼
 ┌────────────────────────────┐ ║ ┌────────────────────────────┐
 │  ENGINE 1: DECAYING REEL   │ ║ │ ENGINE 2: PROGRESSION TRACK│
 │  (substitution layer)      │ ║ │ (replacement layer)        │
 │  · variable-ratio mimicry  │X║ │ · verified behavior        │
-│  · charity sweepstakes     │X║ │ · certain milestones       │
-│  · taper-to-boredom decay  │X║ │ · ceremonial identity      │
-│  PURPOSE: substitution,    │ ║ │ PURPOSE: replacement,      │
-│  containment, decay        │ ║ │ status, durable identity   │
+│    (telemetry, no money)   │X║ │ · certain milestones       │
+│  · calendar-anchored decay │X║ │ · ceremonial identity      │
+│    (binges slow it)        │ ║ │                            │
 └─────────────┬──────────────┘ ║ └─────────────┬──────────────┘
-   chance stays quarantined    ║    identity is earned only here
-              ▼           HARD FIREWALL        ▼
-┌────────────────────────┐ NO IDENTITY  ┌─────────────────────────────┐
-│  CHARITY PAYOUT POOL   │  BY CHANCE   │ IDENTITY ARTIFACTS live only│
-│  (money exits outward) │              │ on the deterministic track  │
-└────────────────────────┘              └─────────────────────────────┘
+  chance stays quarantined,    ║    identity is earned only here,
+  scoped to its episode   HARD FIREWALL  permanent once earned
+              ▼          NO IDENTITY OR        ▼
+┌────────────────────────┐ MONEY BY CHANCE ┌──────────────────────────┐
+│ CHARITY CONTRIBUTION   │                 │ IDENTITY ARTIFACTS live  │
+│ POOL (house-funded,    │                 │ only on the deterministic│
+│ app-event triggered)   │                 │ track                    │
+└────────────────────────┘                 └──────────────────────────┘
 ```
 
-## How the app stops slot-machining for money
+## 1. Money is decoupled from chance entirely
 
-The user's urge is real, so the app does not pretend it away — it routes it.
+Chance produces telemetry, harmless ritual feedback, and non-monetary
+decay-state observations only. `SpinOutcome` has six fields — `hit`,
+`forced`, `near_miss`, `jackpot_theater`, `staleness_observed`,
+`binge_tripped` — and none is monetary. The reel module has no import
+of, and no reference to, any money object.
 
-**Engine 1, the decaying reel** (`decaying_reel.py`), is the substitution
-layer: contain the slot ritual, redirect the charge, then deliberately decay
-it into boredom.
+Charity is modeled as a **house-funded, budgeted contribution pool**
+(`terminals.py`). It is funded once at construction from a house
+budget; there is no API that accepts user money. Contributions are
+triggered by eligible app-side events at fixed scheduled amounts —
+enrollment, clean episode closure, recovery check-in, milestone award —
+and chance events are not representable in the trigger vocabulary. The
+user never owns winnings, never has money "redirected in their name,"
+and never receives a cent: money only exits outward to charity.
 
-- **Variable-ratio mimicry** — the slot *feel*, allowed only inside the reel
-  as controlled substitution. Token stakes; hits pay nothing, they just feel
-  like hits. Constructing the mechanics outside the reel raises
-  `ContainmentBreach`.
-- **Charity sweepstakes** — salience redirects outward. The money the user
-  would have gambled funds the charity pool immediately and irrevocably; a
-  winning draw directs a *matched donation in their name*. No field of a
-  sweepstake result is payable to the player: no personal cash-rescue fantasy.
-- **Taper-to-boredom decay** — frequency, brightness, drama, and emotional
-  punch decline together on a monotonic staleness ratchet (no reset method,
-  decay accelerates with use) until the ritual is psychologically stale and
-  the engine retires permanently (`EngineRetired`).
+The firewall additionally blocks, by rule, any chance-provenance
+crossing carrying a monetary payload key: *"No user-facing money may
+originate from chance."*
 
-**The hard firewall** (`firewall.py`) sits between the engines. Every fact
-that wants to cross is a provenance-tagged `Crossing`; the firewall applies
-the four doctrine rules verbatim and keeps an audit log of blocks:
+## 2. Decay is anchored to calendar time; binges slow it
 
-1. *Chance cannot grant identity.*
-2. *Reel outcomes cannot unlock graduation.*
-3. *Sweepstakes cannot affect recovery rank.*
-4. *No jackpot baptism.*
+`CalendarDecay` (`decaying_reel.py`) computes staleness from
+*effective recovery days*:
 
-The pass it issues (`ClearedCrossing`) carries a private checkpoint stamp
-only the firewall holds, and the progression track rejects anything without
-it — there is no way to route around the checkpoint.
+```
+effective = elapsed since enrollment
+          − time inside binge pauses
+          − binge penalty days
+          + verified recovery interval bonuses
+```
 
-**Engine 2, the progression track** (`progression_track.py`), is the
-replacement layer: earned milestones, verified progress, recovery capital,
-and ceremonial identity repair.
+Spins never appear with a positive sign in that formula. Reel
+intensity, frequency allowance, brightness, novelty, sound, payout
+theater, and emotional punch all decline as calendar staleness rises.
+`observe_spin()` feeds only binge detection: crossing the spin-frequency
+threshold inside the window pauses decay and applies a partial reset
+penalty. Verified recovery behavior (e.g. an honored cooldown) is the
+only accelerator. A property test pins the invariant: at equal wall
+time, staleness(binge) ≤ staleness(light use) ≤ staleness(abstinent),
+with binging strictly worse. Once staleness reaches 1.0 it latches; the
+reel is retired permanently.
 
-- **Verified behavior** — progress comes from taper steps (e.g. honoring a
-  cooldown through an urge, attested by reel telemetry), blocking tools, or
-  self-exclusion. Nothing else credits.
-- **Certain milestones** — the entire schedule (known targets, known relic
-  rewards, known rank) is published before the first behavior is credited.
-  No mystery box. The track imports no randomness, clocks, or I/O (enforced
-  by an AST test), and replaying the same behaviors rebuilds the same track.
-- **Ceremonial identity** — graduation requires the complete schedule, is
-  opt-in, must be witnessed, happens once, and is permanent.
+## 3. The episode model
 
-**Identity artifacts live only on the deterministic track**
-(`artifacts.py`): Discharge Papers · Hall of Quitters / Pantheon · Unlost
-Ledger (money kept by tapering) · Recovery Relics · Quit Story ·
-Housebreakers' Council. Every artifact carries the track's provenance seal,
-which the reel side never holds.
+Gambling behavior is episodic (`episode.py`), not a single permanent
+linear state. An episode opens with a **reported urge, planned taper
+session, relapse-risk window, or recovery check-in**, and closes by
+**timeout, explicit closure, cooldown completion, or verified
+transition to non-use**.
 
-**The charity payout pool** (`terminals.py`) is the coral side's only money
-terminal: funding records are irrevocable, reconciliation against the ledger
-always balances, and disbursement only drains outward.
+All reel-side activity requires an active episode. Spin telemetry,
+urge counts, and exposure observations are recorded on the episode and
+sealed inside it at closure — closed episodes reject new state. Firewall
+crossings carry their `episode_id`, so doctrine decisions are auditable
+per episode, and the permanence tests verify that forbidden crossings
+stay blocked both **within an active episode** and **across episode
+boundaries** (replaying a closed episode's chance telemetry later is
+still blocked). Identity artifacts, once deterministically earned at the
+witnessed, opt-in, once-only ceremony, persist across all later
+episodes — including relapse-risk ones.
 
-## Governance rules and where each is enforced
+## Firewall doctrine (all enforced, all tested)
 
-| Diagram rule | Enforcement |
+| Rule | Enforcement |
 |---|---|
-| Chance cannot grant identity | `HardFirewall` blocks CHANCE-provenance `IDENTITY_GRANT`; artifacts also need the track's private seal (`ProvenanceError`). |
-| Reel outcomes cannot unlock graduation | Firewall blocks CHANCE `GRADUATION_UNLOCK`; graduation eligibility is a pure function of verified behaviors. A 30-spin winning streak leaves rank 0, zero milestones, zero artifacts (tested). |
-| Sweepstakes cannot affect recovery rank | Firewall blocks any sweepstake-sourced rank or progress crossing. |
-| No jackpot baptism | Firewall blocks any jackpot-tagged crossing into identity. |
-| Chance stays quarantined here | Blanket rule: CHANCE provenance never crosses at all; mimicry is constructible only inside the reel. |
+| No user-facing money may originate from chance | Firewall blocks CHANCE crossings with monetary payload keys; chance outcomes have no monetary fields; the pool's trigger vocabulary is app-side only. |
+| Chance cannot grant identity | Firewall blocks CHANCE `IDENTITY_GRANT`; artifacts require the track's private seal. |
+| Reel outcomes cannot unlock graduation | Firewall blocks CHANCE `GRADUATION_UNLOCK`; eligibility is a pure function of verified behaviors. |
+| Sweepstakes cannot affect recovery rank | Sweepstake-sourced rank/progress crossings blocked (vestigial guard; no sweepstake exists anymore). |
+| No jackpot baptism | Jackpot-tagged crossings into identity blocked. |
+| Chance stays quarantined | Blanket rule: CHANCE provenance never crosses at all. |
 | Identity is earned only here | `ProgressionTrack.credit` accepts only firewall-stamped crossings with VERIFIED provenance. |
-| Earned, witnessed, opt-in, permanent | `IdentityCollection.shelve` rejects unsealed, unwitnessed, or non-opt-in artifacts; frozen dataclasses + append-only shelf; ceremony held once. |
-| No mystery box | Milestone targets, relics, and ranks are fixed at construction and readable before play. |
-| No cash-rescue fantasy | Sweepstake results have no player-payable field; the pool has no withdraw path; disbursement is exit-only. |
+| Earned, witnessed, opt-in, permanent | Collection rejects unsealed/unwitnessed/non-opt-in artifacts; ceremony latches only after success. |
+| No mystery box | Milestone targets, relics, ranks fixed at construction, readable before play. |
 
 ## Running it
 
 No dependencies beyond the Python 3.10+ standard library.
 
 ```bash
-python -m recovering_player            # one full journey, default seed
-python -m recovering_player 99         # different seed, same governance
-python -m unittest discover -s tests   # 26-test doctrine suite
+python -m recovering_player            # one episodic journey, manual clock
+python -m unittest discover -s tests   # 34-test invariant suite
 ```
-
-The demo shows the urge arriving, the reel decaying toward staleness, the
-firewall blocking all four doctrine violations by name, the published
-milestone schedule completing through verified behavior, and the ceremony
-minting the full artifact catalog — while every committed cent exits to
-charity.

@@ -46,6 +46,7 @@ class VerifiedBehavior:
     kind: BehaviorKind
     description: str
     verified_by: str
+    episode_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -161,6 +162,7 @@ class ProgressionTrack:
             kind=BehaviorKind(crossing.payload["behavior"]),
             description=str(crossing.payload.get("description", "")),
             verified_by=str(crossing.payload.get("verified_by", crossing.source)),
+            episode_id=crossing.episode_id,
         )
         self._behaviors.append(behavior)
         self._counts[behavior.kind] += 1
@@ -196,7 +198,6 @@ class ProgressionTrack:
             return ()
         if not opt_in:
             return ()
-        self._ceremony_held = True
 
         def mint(kind: ArtifactKind, title: str, earned_for: str,
                  detail: dict | None = None) -> IdentityArtifact:
@@ -228,4 +229,7 @@ class ProgressionTrack:
         )
         for artifact in artifacts:
             collection.shelve(artifact)
+        # Latch only after every artifact shelved: a rejected ceremony
+        # (e.g. unwitnessed) must not burn the one permitted ceremony.
+        self._ceremony_held = True
         return artifacts
