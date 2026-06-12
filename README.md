@@ -1,84 +1,107 @@
-# Recovering Player
+# Recovering Player — The Two-Engine Firewall
 
-A reference implementation of the taper architecture from the UML diagram:
-an app whose addictive half is **designed to die**, while its meaningful half
-is **permanent, deterministic, and never touched by chance**.
+A therapy-app architecture for quitting slot machines, implemented from the
+diagram. The motto is the whole design:
 
-Read the diagram left-lethal, right-sacred:
+> **Chance is quarantined in substitution. Identity is earned in
+> deterministic replacement.**
+>
+> **Firewall doctrine: variable reward can taper behavior; only
+> deterministic reward can rebuild identity.**
 
 ```
-                       ┌─────────────────────┐
-                       │  Recovering player  │
-                       └──────────┬──────────┘
-              ┌───────────────────┴────────────────────┐
-   CORAL — mortal          firewall ▒▒▒▒▒▒        TEAL — sacred
-┌──────────────────────┐      ▒▒▒▒▒▒▒▒▒▒    ┌──────────────────────┐
-│     Taper engine     │      ▒▒▒▒▒▒▒▒▒▒    │  Progression engine  │
-│  ┌────────────────┐  │      ▒▒▒▒▒▒▒▒▒▒    │ ┌──────────────────┐ │
-│  │      Reel      │  │      ▒▒▒▒▒▒▒▒▒▒    │ │ Milestone tracker│ │
-│  └────────────────┘  │      ▒▒▒▒▒▒▒▒▒▒    │ └──────────────────┘ │
-│  ┌────────────────┐  │ ┌───────────────┐  │ ┌──────────────────┐ │
-│  │ Decay scheduler│──┼─►   event bus   ├──┼►│  Identity mint   │ │
-│  └────────────────┘  │ └───────────────┘  │ └──────────────────┘ │
-└──────────┬───────────┘   the one breach   └──────────┬───────────┘
-           ▼                                           ▼
-┌──────────────────────┐                    ┌──────────────────────┐
-│  Charity payout pool │                    │ Identity collection  │
-└──────────────────────┘                    └──────────────────────┘
+              ┌────────────────────────────────────┐
+              │  USER URGE / CRAVING / RITUAL PULL │
+              └──────┬──────────────────────┬──────┘
+                     ▼                      ▼
+┌────────────────────────────┐ ║ ┌────────────────────────────┐
+│  ENGINE 1: DECAYING REEL   │ ║ │ ENGINE 2: PROGRESSION TRACK│
+│  (substitution layer)      │ ║ │ (replacement layer)        │
+│  · variable-ratio mimicry  │X║ │ · verified behavior        │
+│  · charity sweepstakes     │X║ │ · certain milestones       │
+│  · taper-to-boredom decay  │X║ │ · ceremonial identity      │
+│  PURPOSE: substitution,    │ ║ │ PURPOSE: replacement,      │
+│  containment, decay        │ ║ │ status, durable identity   │
+└─────────────┬──────────────┘ ║ └─────────────┬──────────────┘
+   chance stays quarantined    ║    identity is earned only here
+              ▼           HARD FIREWALL        ▼
+┌────────────────────────┐ NO IDENTITY  ┌─────────────────────────────┐
+│  CHARITY PAYOUT POOL   │  BY CHANCE   │ IDENTITY ARTIFACTS live only│
+│  (money exits outward) │              │ on the deterministic track  │
+└────────────────────────┘              └─────────────────────────────┘
 ```
 
-## Governance rules, and where each is enforced
+## How the app stops slot-machining for money
 
-The arrows tell the whole governance story. Every rule is **structural** —
-made impossible by construction, not requested by convention:
+The user's urge is real, so the app does not pretend it away — it routes it.
 
-| Rule | Enforcement |
+**Engine 1, the decaying reel** (`decaying_reel.py`), is the substitution
+layer: contain the slot ritual, redirect the charge, then deliberately decay
+it into boredom.
+
+- **Variable-ratio mimicry** — the slot *feel*, allowed only inside the reel
+  as controlled substitution. Token stakes; hits pay nothing, they just feel
+  like hits. Constructing the mechanics outside the reel raises
+  `ContainmentBreach`.
+- **Charity sweepstakes** — salience redirects outward. The money the user
+  would have gambled funds the charity pool immediately and irrevocably; a
+  winning draw directs a *matched donation in their name*. No field of a
+  sweepstake result is payable to the player: no personal cash-rescue fantasy.
+- **Taper-to-boredom decay** — frequency, brightness, drama, and emotional
+  punch decline together on a monotonic staleness ratchet (no reset method,
+  decay accelerates with use) until the ritual is psychologically stale and
+  the engine retires permanently (`EngineRetired`).
+
+**The hard firewall** (`firewall.py`) sits between the engines. Every fact
+that wants to cross is a provenance-tagged `Crossing`; the firewall applies
+the four doctrine rules verbatim and keeps an audit log of blocks:
+
+1. *Chance cannot grant identity.*
+2. *Reel outcomes cannot unlock graduation.*
+3. *Sweepstakes cannot affect recovery rank.*
+4. *No jackpot baptism.*
+
+The pass it issues (`ClearedCrossing`) carries a private checkpoint stamp
+only the firewall holds, and the progression track rejects anything without
+it — there is no way to route around the checkpoint.
+
+**Engine 2, the progression track** (`progression_track.py`), is the
+replacement layer: earned milestones, verified progress, recovery capital,
+and ceremonial identity repair.
+
+- **Verified behavior** — progress comes from taper steps (e.g. honoring a
+  cooldown through an urge, attested by reel telemetry), blocking tools, or
+  self-exclusion. Nothing else credits.
+- **Certain milestones** — the entire schedule (known targets, known relic
+  rewards, known rank) is published before the first behavior is credited.
+  No mystery box. The track imports no randomness, clocks, or I/O (enforced
+  by an AST test), and replaying the same behaviors rebuilds the same track.
+- **Ceremonial identity** — graduation requires the complete schedule, is
+  opt-in, must be witnessed, happens once, and is permanent.
+
+**Identity artifacts live only on the deterministic track**
+(`artifacts.py`): Discharge Papers · Hall of Quitters / Pantheon · Unlost
+Ledger (money kept by tapering) · Recovery Relics · Quit Story ·
+Housebreakers' Council. Every artifact carries the track's provenance seal,
+which the reel side never holds.
+
+**The charity payout pool** (`terminals.py`) is the coral side's only money
+terminal: funding records are irrevocable, reconciliation against the ledger
+always balances, and disbursement only drains outward.
+
+## Governance rules and where each is enforced
+
+| Diagram rule | Enforcement |
 |---|---|
-| Events flow taper → progression, never back | `MinimumEventBus.issue_outlet()` creates the single publish capability exactly once; the taper engine holds it. A second call raises `BreachViolation`. Subscribers get no publish path. |
-| Progression cannot influence reel odds | `progression_engine.py` has no import of, and holds no reference to, the taper engine or the outlet. There is no inbound channel to the coral side. |
-| The reel cannot dispense identity | `IdentityCollection.shelve()` rejects any artifact not sealed with the `ProgressionEngine`'s private `_ProvenanceSeal` instance (raises `ProvenanceError`). The taper side never sees the seal. |
-| The taper side is designed to die | `DecayScheduler` is a monotonic ratchet with no reset method; at predictability 1.0 the engine emits `GraduationDeclared`, retires, and any further spin raises `EngineRetired`. |
-| The teal side is never touched by chance | No randomness, clocks, or I/O anywhere in `progression_engine.py` (tested via AST inspection of its imports). Replaying the same event log rebuilds identical state. |
-| Money exits to charity, irrevocably | `CharityPayoutPool` has no public deposit method — it accrues solely from `StakeForfeited` bus events — and `disburse()` only ever empties it outward. |
-
-## Box-by-box spec
-
-### Recovering player — `player.py`
-The top box: the user and the session they drive. `RecoveringPlayer` wires the
-diagram exactly once (bus → outlet → taper; everything else listens) and then
-the only verb left is `pull_lever(stake)`. All consequences propagate through
-the governance structure on their own.
-
-### Taper engine (coral) — `taper_engine.py`
-The mortal subsystem. Composes the reel and the decay scheduler; emits
-immutable `TaperEvent`s through its outlet; self-retires at saturation.
-
-- **Reel** — classic variable-ratio reinforcement at predictability 0. As the
-  poison rises, a growing share of spins becomes *forced*: outcomes follow a
-  fixed, announced alternation instead of chance. Fully poisoned, it is pure
-  pattern — no surprise, nothing left to chase.
-- **Decay scheduler** — the progressive poisoning. Predictability only ratchets
-  upward, and decay *accelerates* with use, so heavier play tapers faster.
-
-### Progression engine (teal) — `progression_engine.py`
-The permanent subsystem. A pure fold over the event log it observes through
-the bus: deterministic milestones (`MilestoneTracker`) and, at graduation, the
-minting of a provenance-sealed `IdentityArtifact`. Graduation is the moment
-this engine becomes the whole app.
-
-### Minimum event bus — `bus.py`, `events.py`
-The only deliberate breach in the firewall. One inlet (the `TaperOutlet`
-capability), many listeners, an append-only log. Only frozen `TaperEvent`
-records may cross: `SpinResolved`, `StakeForfeited`, `GraduationDeclared`.
-
-### Charity payout pool (coral terminal) — `terminals.py`
-Where money from the chance side leaves the system. Every cent is validated
-against the forfeit events on the bus log, so the pool can never hold money
-the log cannot account for. Exit-only.
-
-### Identity collection (teal terminal) — `terminals.py`
-The permanent shelf of identity artifacts. Provenance-checked at the door:
-only the progression engine's seal opens it.
+| Chance cannot grant identity | `HardFirewall` blocks CHANCE-provenance `IDENTITY_GRANT`; artifacts also need the track's private seal (`ProvenanceError`). |
+| Reel outcomes cannot unlock graduation | Firewall blocks CHANCE `GRADUATION_UNLOCK`; graduation eligibility is a pure function of verified behaviors. A 30-spin winning streak leaves rank 0, zero milestones, zero artifacts (tested). |
+| Sweepstakes cannot affect recovery rank | Firewall blocks any sweepstake-sourced rank or progress crossing. |
+| No jackpot baptism | Firewall blocks any jackpot-tagged crossing into identity. |
+| Chance stays quarantined here | Blanket rule: CHANCE provenance never crosses at all; mimicry is constructible only inside the reel. |
+| Identity is earned only here | `ProgressionTrack.credit` accepts only firewall-stamped crossings with VERIFIED provenance. |
+| Earned, witnessed, opt-in, permanent | `IdentityCollection.shelve` rejects unsealed, unwitnessed, or non-opt-in artifacts; frozen dataclasses + append-only shelf; ceremony held once. |
+| No mystery box | Milestone targets, relics, and ranks are fixed at construction and readable before play. |
+| No cash-rescue fantasy | Sweepstake results have no player-payable field; the pool has no withdraw path; disbursement is exit-only. |
 
 ## Running it
 
@@ -86,19 +109,12 @@ No dependencies beyond the Python 3.10+ standard library.
 
 ```bash
 python -m recovering_player            # one full journey, default seed
-python -m recovering_player 99         # different journey, same destination
-python -m unittest discover -s tests   # governance invariant suite
+python -m recovering_player 99         # different seed, same governance
+python -m unittest discover -s tests   # 26-test doctrine suite
 ```
 
-Example output:
-
-```
-journey complete
-  spins until graduation : 27
-  final predictability   : 1.00
-  taper engine retired   : True
-  milestones earned      : ['first-steps', 'steady-hand', 'clear-eyed']
-  identity shelf         : ['graduate']
-  charity disbursement   : 85 units (lifetime accrued 85)
-  bus log length         : 45 events, all coral-origin
-```
+The demo shows the urge arriving, the reel decaying toward staleness, the
+firewall blocking all four doctrine violations by name, the published
+milestone schedule completing through verified behavior, and the ceremony
+minting the full artifact catalog — while every committed cent exits to
+charity.
