@@ -1,69 +1,91 @@
-"""Recovering Player - a taper architecture for variable-ratio recovery.
+"""Recovering Player — the two-engine firewall.
 
-Component map (mirrors the UML diagram; read it left-lethal, right-sacred):
+Chance is quarantined in substitution. Identity is earned in
+deterministic replacement.
 
-    RecoveringPlayer ............ top box: the user and their journey
-    ├── TaperEngine (coral) ..... designed to die
-    │   ├── Reel ................ variable-ratio reinforcement
-    │   └── DecayScheduler ...... poisons the reel with predictability
-    ├── ProgressionEngine (teal)  permanent, deterministic, chance-free
-    │   ├── MilestoneTracker .... pure function of the event log
-    │   └── IdentityArtifact .... provenance-sealed identity minting
-    ├── MinimumEventBus ......... the only deliberate breach in the firewall
-    ├── CharityPayoutPool ....... coral terminal: money exits to charity
-    └── IdentityCollection ...... teal terminal: permanent identity shelf
+    RecoveringPlayer .............. top box: user urge / craving / ritual pull
+    ├── DecayingReel (Engine 1) ... substitution layer, designed to die
+    │   ├── VariableRatioMimicry .. slot feel, contained, tokens only
+    │   ├── CharitySweepstakes .... salience redirected outward
+    │   └── TaperToBoredomDecay ... every sensory channel ratchets down
+    ├── HardFirewall .............. NO IDENTITY BY CHANCE (4 doctrine rules)
+    ├── ProgressionTrack (Engine 2) replacement layer, deterministic
+    │   ├── VerifiedBehavior ...... taper steps, blocking tools, self-exclusion
+    │   ├── CertainMilestone ...... known target, known reward, no mystery box
+    │   └── graduation ceremony ... earned, witnessed, opt-in, permanent
+    ├── CharityPayoutPool ......... money exits outward, never back
+    └── IdentityCollection ........ artifacts live only on the deterministic track
 
-Governance, enforced structurally:
-    * events flow taper -> progression, never back (single publish outlet)
-    * the progression engine cannot influence reel odds (no inbound channel)
-    * the reel cannot dispense identity (provenance seal it does not hold)
-    * predictability only ratchets up; graduation is irreversible
+Firewall doctrine: variable reward can taper behavior; only
+deterministic reward can rebuild identity.
 """
 
-from recovering_player.bus import BreachViolation, MinimumEventBus, TaperOutlet
-from recovering_player.events import (
-    GraduationDeclared,
-    SpinResolved,
-    StakeForfeited,
-    TaperEvent,
+from recovering_player.firewall import (
+    ClearedCrossing,
+    Crossing,
+    CrossingKind,
+    FirewallRejection,
+    HardFirewall,
+    Provenance,
 )
-from recovering_player.taper_engine import (
-    DecayScheduler,
+from recovering_player.decaying_reel import (
+    CharitySweepstakes,
+    ContainmentBreach,
+    DecayingReel,
     EngineRetired,
-    Reel,
-    TaperEngine,
+    SensoryProfile,
+    SpinOutcome,
+    SweepstakeResult,
+    TaperStepReceipt,
+    TaperToBoredomDecay,
+    VariableRatioMimicry,
 )
-from recovering_player.progression_engine import (
+from recovering_player.progression_track import (
+    DEFAULT_SCHEDULE,
+    BehaviorKind,
+    CertainMilestone,
+    NotEligible,
+    ProgressionTrack,
+    VerifiedBehavior,
+)
+from recovering_player.artifacts import (
+    ArtifactKind,
     IdentityArtifact,
-    Milestone,
-    MilestoneTracker,
-    ProgressionEngine,
-)
-from recovering_player.terminals import (
-    CharityPayoutPool,
     IdentityCollection,
     ProvenanceError,
 )
-from recovering_player.player import RecoveringPlayer
+from recovering_player.terminals import CharityPayoutPool, FundingRecord
+from recovering_player.player import RecoveringPlayer, UrgeRouting
 
 __all__ = [
-    "BreachViolation",
-    "MinimumEventBus",
-    "TaperOutlet",
-    "TaperEvent",
-    "SpinResolved",
-    "StakeForfeited",
-    "GraduationDeclared",
-    "TaperEngine",
-    "Reel",
-    "DecayScheduler",
+    "HardFirewall",
+    "Crossing",
+    "ClearedCrossing",
+    "CrossingKind",
+    "Provenance",
+    "FirewallRejection",
+    "DecayingReel",
+    "VariableRatioMimicry",
+    "CharitySweepstakes",
+    "TaperToBoredomDecay",
+    "SensoryProfile",
+    "SpinOutcome",
+    "SweepstakeResult",
+    "TaperStepReceipt",
     "EngineRetired",
-    "ProgressionEngine",
-    "MilestoneTracker",
-    "Milestone",
+    "ContainmentBreach",
+    "ProgressionTrack",
+    "BehaviorKind",
+    "VerifiedBehavior",
+    "CertainMilestone",
+    "DEFAULT_SCHEDULE",
+    "NotEligible",
+    "ArtifactKind",
     "IdentityArtifact",
-    "CharityPayoutPool",
     "IdentityCollection",
     "ProvenanceError",
+    "CharityPayoutPool",
+    "FundingRecord",
     "RecoveringPlayer",
+    "UrgeRouting",
 ]
